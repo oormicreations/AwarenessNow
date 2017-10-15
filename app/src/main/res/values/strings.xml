@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">Awareness Now</string>
+    <string name="defaultRem">I am Aware !</string>
+
+    <string name="menu_info">Info</string>
+    <string name="menu_share">Share</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_edit">Edit Reminders</string>
+    <string name="menu_demo">Demo</string>
+
+    <string name="nxtremtoast">Next reminder in&#160;</string>
+    <string name="nxtremmintoast">&#160;minutes</string>
+    <string name="emptyRem">Be Aware!</string>
+    <string name="editRemTitle">Add Edit Reminders</string>
+    <string name="hintRem">Add a new reminder</string>
+    <string name="editCancel">Cancel</string>
+    <string name="editApply">Apply</string>
+    <string name="editAdd">Add New</string>
+
+    <string-array name="rems">
+        <item>Be Aware!</item>
+        <item>Awareness is the key</item>
+        <item>I am Aware</item>
+        <item>Are you aware now?</item>
+        <item>I am aware of my thoughts</item>
+        <item>I am aware of my actions</item>
+        <item>I am aware of my surroundings</item>
+        <item>I am aware of people around me</item>
+        <item>I am the witness</item>
+        <item>I am the experiencer</item>
+        <item>I am Pure Consciousness</item>
+        <item>I am conscious</item>
+        <item>I watch my mind</item>
+        <item>I witness the world and the mind</item>
+        <item>I am present</item>
+        <item>Awareness is, here and now</item>
+    </string-array>
+
+</resources>
