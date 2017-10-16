@@ -33,18 +33,22 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -58,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
     public boolean demoMode = false;
     private ArrayList<String> remList = new ArrayList<>();
     TextToSpeech tts;
+    private ShareActionProvider mShareActionProvider;
+    String SAVED_REMS = "saved_rems";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,10 +76,10 @@ public class MainActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
         //this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-//        PreferenceManager.setDefaultValues(this, R.xml.pref_data_sync, false);
-//        PreferenceManager.setDefaultValues(this, R.xml.pref_general, false);
-//        PreferenceManager.setDefaultValues(this, R.xml.pref_headers, false);
-//        PreferenceManager.setDefaultValues(this, R.xml.pref_notification, false);
+        PreferenceManager.setDefaultValues(this, R.xml.pref_data_sync, false);
+        PreferenceManager.setDefaultValues(this, R.xml.pref_general, false);
+        PreferenceManager.setDefaultValues(this, R.xml.pref_headers, false);
+        PreferenceManager.setDefaultValues(this, R.xml.pref_notification, false);
 
         getReminders();
         setupBroadcastReceiver();
@@ -85,54 +91,45 @@ public class MainActivity extends AppCompatActivity {
                 if (isChecked) {
                     dispRem();  //initial rem without a delay
                     startTimer();
-                    setAnimation();
+                    Animation animation = AnimationUtils.loadAnimation(MainActivity.this,
+                            R.anim.remstart);
+                    toggleRem.startAnimation(animation);
                 } else {
                     stopTimer();
                     toggleRem.clearAnimation();
+                    demoMode = false;
                 }
             }
         });
     }
 
     private void getReminders() {
-        String[] defaultRems = getResources().getStringArray(R.array.rems);
+
+        final SharedPreferences sharedPref =
+                PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+
+        Set<String> stringSet = new HashSet<>();
+        stringSet = sharedPref.getStringSet(SAVED_REMS, null);
+
         remList.clear();
-        for (int i = 0; i < defaultRems.length; i++) {
-            remList.add(defaultRems[i]);
+        if (stringSet!=null){
+            remList.addAll(stringSet);
+        } else {
+            String[] defaultRems = getResources().getStringArray(R.array.rems);
+            for (int i = 0; i < defaultRems.length; i++) {
+                remList.add(defaultRems[i]);
+            }
         }
 
-    }
+        String remfreqstr = sharedPref.getString(SettingsActivity.freq, "20");
+        remFreq = Integer.parseInt(remfreqstr);
 
-    private void setAnimation() {
-        final ToggleButton toggleRem = (ToggleButton) findViewById(R.id.toggleButtonSwan);
-/*
-        AlphaAnimation fade_in = new AlphaAnimation(0.2f, 1.0f);
-        fade_in.setDuration(1000);
-        fade_in.setAnimationListener(new Animation.AnimationListener()
-        {
-            public void onAnimationStart(Animation arg0)
-            {
-            }
-            public void onAnimationRepeat(Animation arg0)
-            {
-            }
+        String rdelayrangestr = sharedPref.getString(SettingsActivity.randdelay, "5");
+        randomDelayRange = Integer.parseInt(rdelayrangestr);
 
-            public void onAnimationEnd(Animation arg0)
-            {
-                toggleRem.setVisibility(View.VISIBLE);
-                Animation animation = AnimationUtils.loadAnimation(MainActivity.this, 
-                        R.anim.remstart);
-                toggleRem.startAnimation(animation);
-            }
-        });
-        toggleRem.startAnimation(fade_in);
-        */
-        Animation animation = AnimationUtils.loadAnimation(MainActivity.this, R.anim.remstart);
-        toggleRem.startAnimation(animation);
+        noNightRem = sharedPref.getBoolean(SettingsActivity.night, true);
 
     }
-
-    private ShareActionProvider mShareActionProvider;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -161,13 +158,18 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+
+        haltReminders();
+
         switch (item.getItemId()) {
             case R.id.menuInfo:
-                Intent i = new Intent(this, ResourceShow.class);
-                startActivity(i);
+                Intent intentInfo = new Intent(this, ResourceShow.class);
+                startActivity(intentInfo);
                 break;
 
             case R.id.menuSettings:
+                Intent intentSet = new Intent(this, SettingsActivity.class);
+                startActivity(intentSet);
                 break;
 
             case R.id.menuEdit:
@@ -175,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case R.id.menuDemo:
+                demoMode = true;
                 break;
 
             case R.id.menuShare:
@@ -183,7 +186,16 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+    private void haltReminders() {
+        final ToggleButton toggleRem = (ToggleButton) findViewById(R.id.toggleButtonSwan);
+        toggleRem.setChecked(false);
+        toggleRem.clearAnimation();
+        stopTimer();
+        demoMode = false;
+    }
+
     private void editReminders() {
+
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
 
         final LinearLayout layout = new LinearLayout(this);
@@ -206,6 +218,11 @@ public class MainActivity extends AppCompatActivity {
         tv.setGravity(Gravity.CENTER);
         tv.setTextSize(20);
 
+        final CheckBox checkBoxReset = new CheckBox(this);
+        checkBoxReset.setText(R.string.editReset);
+        checkBoxReset.setPadding(40, 40, 40, 40);
+        layout.addView(checkBoxReset);
+
         final ArrayList<EditText> etRemList = new ArrayList<>();
         for (int i=0;i<remList.size();i++) {
             final EditText etRem = new EditText(this);
@@ -218,6 +235,17 @@ public class MainActivity extends AppCompatActivity {
         alertDialogBuilder.setView(scrollView);
         alertDialogBuilder.setCustomTitle(tv);
 
+        checkBoxReset.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                for (int i = 0; i < etRemList.size(); i++) {
+                    etRemList.get(i).setEnabled(!isChecked);
+                }
+                if (isChecked)checkBoxReset.setText(getString(R.string.editWarn));
+                else checkBoxReset.setText(R.string.editReset);
+            }
+        });
+
         alertDialogBuilder.setNegativeButton(R.string.editCancel,
                 new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int whichButton) {
@@ -229,10 +257,18 @@ public class MainActivity extends AppCompatActivity {
                 new DialogInterface.OnClickListener(){
             public void onClick(DialogInterface dialog, int which){
                 remList.clear();
-                for (int i =0; i < etRemList.size(); i++){
-                    String s = etRemList.get(i).getText().toString();
-                    if (!s.isEmpty())remList.add(s);
+                if (checkBoxReset.isChecked()){
+                    String[] defaultRems = getResources().getStringArray(R.array.rems);
+                    for (int i = 0; i < defaultRems.length; i++) {
+                        remList.add(defaultRems[i]);
+                    }
+                }else {
+                    for (int i = 0; i < etRemList.size(); i++) {
+                        String s = etRemList.get(i).getText().toString();
+                        if (!s.isEmpty()) remList.add(s);
+                    }
                 }
+                saveReminders();
             }
         });
 
@@ -265,6 +301,16 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void saveReminders() {
+        Set<String> stringSet = new HashSet<>();
+        stringSet.addAll(remList);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putStringSet(SAVED_REMS, stringSet);
+        editor.commit();
+    }
+
     private void setupBroadcastReceiver() {
         broadcastReceiver = new BroadcastReceiver() {
             @Override
@@ -281,9 +327,11 @@ public class MainActivity extends AppCompatActivity {
                 }
                 else {enabled = true;}
 
+                if(demoMode){enabled = true;} //demo in night too
+
                 if (enabled) {
                     PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                    PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK |
+                    PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK |
                             PowerManager.ACQUIRE_CAUSES_WAKEUP, "AwareAppTag");
                     wl.acquire();
                     dispRem();
@@ -316,11 +364,12 @@ public class MainActivity extends AppCompatActivity {
             rdelay = rand.nextInt(randomDelayRange);
         }
 
-        int delay = 1000 * (remFreq + rdelay);
-        String toastinfo = String.valueOf(delay/60000) + getString(R.string.nxtremmintoast);
+        int delay = 60000 * (remFreq + rdelay);
+        //String toastinfo = String.valueOf(delay/60000) + getString(R.string.nxtremmintoast);
         if(demoMode){
-            delay = 30000;
-            toastinfo = "30 sec (Demo Mode)";
+            delay = 10000;
+            String info = "Demo Mode";
+            Toast.makeText(this, info, Toast.LENGTH_SHORT).show();
         }
         //Toast.makeText(this, getString(R.string.nxtremtoast) + toastinfo, Toast.LENGTH_SHORT).show();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -375,15 +424,15 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onInit(int status) {
                     if(status == TextToSpeech.SUCCESS){
-                        int result=tts.setLanguage(Locale.UK);
-                        if(result==TextToSpeech.LANG_MISSING_DATA ||
-                                result==TextToSpeech.LANG_NOT_SUPPORTED){
-                            Log.e("TTS Error: ", "This Language is not supported");
-                        }
-                        else{
+//                        int result=tts.setLanguage(Locale.UK);
+//                        if(result==TextToSpeech.LANG_MISSING_DATA ||
+//                                result==TextToSpeech.LANG_NOT_SUPPORTED){
+//                            Log.e("TTS Error: ", "This Language is not supported");
+//                        }
+//                        else{
                             tts.speak(tvRem.getText(), TextToSpeech.QUEUE_FLUSH, null,
                                     TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID);
-                        }
+//                        }
                     }
                     else
                         Log.e("TTS Error: ", "Initialization Failed!");
